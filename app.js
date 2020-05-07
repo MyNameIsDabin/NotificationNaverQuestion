@@ -107,7 +107,7 @@ if (argv.length > 0) {
     const watchTimer = (sec, margin) => 1000 * sec + Math.floor(Math.random() * 1000 * margin);
     const watchProcess = () => {
         watchNewQuestions(argv);
-        setTimeout(watchProcess, watchTimer(5, 1));
+        setTimeout(watchProcess, watchTimer(60*10, 60*5));
     }
     watchProcess();
 } else {

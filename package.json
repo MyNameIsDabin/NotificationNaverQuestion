@@ -1,0 +1,8 @@
+{
+    "name": "notificationnaverquestion",
+    "description": "notification naver question",
+    "version": "1.0.0",
+    "engines": {
+      "node": "12.16.x"
+    }
+  }

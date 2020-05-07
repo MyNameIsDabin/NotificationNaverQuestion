@@ -1,6 +1,7 @@
 const axios = require("axios");
 var cheerio = require('cheerio');
-const fsPromises = require('fs').promises;
+const fs = require('fs');
+const fsPromises = fs.promises;
 const requestURL = "https://kin.naver.com/ajax/mainNoanswer.nhn"
 const TEMP_DATA_FILE_PATH = "temp.data";
 const argv = process.argv.slice(2);
@@ -43,18 +44,18 @@ function sendNotificationMail(title, url) {
     send({
         subject: `new question "${title}"`,
         text: `url: "${url}"`,
-      }, (error, result) => {
+    }, (error, result) => {
         if (error) console.error(error);
         console.log(result);
-      });
+    });
 }
 
 const watchNewQuestions = async (keywords) => {
     const saveData = {};
     const questions = {};
     const resList = await Promise.all(keywords.map(keyword => getHTML(requestURL, makeParameters(keyword))));
-    resList.forEach(resultList =>{
-        resultList.data.result.forEach(questionData=>{
+    resList.forEach(resultList => {
+        resultList.data.result.forEach(questionData => {
             if (questionData.resultList) {
                 questionData.resultList.forEach(result => {
                     questions[result.gdid] = result;
@@ -64,31 +65,42 @@ const watchNewQuestions = async (keywords) => {
         saveData[resultList.config.params.keyword] = Object.keys(questions);
     });
     const dataKeys = Object.keys(saveData);
-    fsPromises.
-    const buffer = await fsPromises.readFile(TEMP_DATA_FILE_PATH);
-    dataKeys.forEach(keyword=>{
-        const readData = JSON.parse(buffer.toString());
-        if (readData.hasOwnProperty(keyword)) {
-            const readKeys = readData[keyword];
-            if (compareArray(saveData[keyword], readKeys)) {
-                console.log(`${Buffer.from(keyword, 'base64').toString('utf8')} 키워드의 새로운 질문이 없습니다.`)
-            } else {
-                const newQuestions = saveData[keyword].filter(key => !readKeys.includes(key));
-                if (newQuestions.length > 0) {
-                    newQuestions.forEach(key => {
-                        const question = questions[key];
-                        if (question) {
-                            const title = cheerio.load(question.title).text();
-                            const url = `https://kin.naver.com/qna/detail.nhn?dirId=${question.dirId}&docId=${question.docId}`;
-                            console.info(`[${title}] \x1b[36m(${url})\x1b[0m`);
-                            sendNotificationMail(title, url);
-                        }
-                    });
+    try {
+        const isInit = !fs.existsSync(TEMP_DATA_FILE_PATH);
+        if (isInit) {
+            console.log(isInit);
+            await fsPromises.writeFile(TEMP_DATA_FILE_PATH, JSON.stringify(saveData));
+        }
+        const buffer = await fsPromises.readFile(TEMP_DATA_FILE_PATH);
+        dataKeys.forEach(keyword => {
+            const readData = JSON.parse(buffer.toString());
+            if (readData.hasOwnProperty(keyword)) {
+                const readKeys = readData[keyword];
+                if (compareArray(saveData[keyword], readKeys)) {
+                    console.log(`${Buffer.from(keyword, 'base64').toString('utf8')} 키워드의 새로운 질문이 없습니다.`)
+                } else {
+                    const newQuestions = saveData[keyword].filter(key => !readKeys.includes(key));
+                    if (newQuestions.length > 0) {
+                        newQuestions.forEach(key => {
+                            const question = questions[key];
+                            if (question) {
+                                const title = cheerio.load(question.title).text();
+                                const url = `https://kin.naver.com/qna/detail.nhn?dirId=${question.dirId}&docId=${question.docId}`;
+                                console.info(`[${title}] \x1b[36m(${url})\x1b[0m`);
+                                console.log(isInit);
+                                if (readKeys.length !== 0) {
+                                    sendNotificationMail(title, url);
+                                }
+                            }
+                        });
+                    }
                 }
             }
-        }
-    });
-    await fsPromises.writeFile(TEMP_DATA_FILE_PATH, JSON.stringify(saveData));
+        });
+        await fsPromises.writeFile(TEMP_DATA_FILE_PATH, JSON.stringify(saveData));
+    } catch (err) {
+        console.error(err)
+    }
 }
 
 if (argv.length > 0) {
